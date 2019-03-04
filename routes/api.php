@@ -17,7 +17,8 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-
+Route::get('/feedback', 'FeedbackController@display');
 Route::get('/feedback/{id}', 'FeedbackController@show');
 
-Route::post('/feedback/store', 'FeedbackController@store');
+Route::post('/feedback/helpful', 'FeedbackController@helpful');
+Route::post('/feedback/unhelpful', 'FeedbackController@unhelpful');

@@ -1,27 +1,47 @@
 <template>
     <div class="container">
         <div class="row">
-            <div class="col-md-8 col-md-offset-2" style="padding-top: 3500px;">
+            <div class="col-md-4">
+                <h2 class="panel-heading">Helpful Movie Reviews</h2>
+                <div class="panel-body" v-for="critic in movieReviews">
+                    <ul class="critic-info">
+                        <li>
+                            Critic: {{critic.critic_name}}
+                        </li>
+                        <li>
+                            Helpful: {{critic.helpful}}
+                        </li>
+                        <li>
+                            Unhelpful: {{critic.unhelpful}}
+                        </li>
+                    </ul>
+                    <hr />
+                </div>
+            </div>
+            <div class="col-md-8">
+                <div v-for="i in info">
                 <div class="panel panel-default">
-                    <div class="panel-heading">Example Component</div>
+                    <div class="panel-heading">New York Times Movie Reviews</div>
                     <div class="panel-body">
-                        <div v-for="i in info">
                             <ul class="movie-info">
                                 <li class="movie-title">
-                                    Movie Title: {{i.display_title}}
+                                    <strong>Movie Title:</strong> {{i.display_title}}
                                 </li>
                                 <li class="critic-name">
-                                    Critic Name: {{i.byline}}
+                                    <strong>Critic Name:</strong> {{titleCase(i.byline)}}
                                 </li>
                                 <li class="movie-headline">
-                                    Movie Headline: {{i.headline}}
+                                    <strong> Movie Headline:</strong> {{i.headline}}
                                 </li>
                                 <li class="critic-summary">
-                                    Critic Summary: {{i.summary_short}}
+                                    <strong>Critic Summary:</strong> {{i.summary_short}}
+                                </li>
+                                <li>
+                                    <a :href="i.link.url" target="_blank">Read More</a>
                                 </li>
                             </ul>
-                            <button v-on:click="helpful">Helpful</button>
-                            <button>Not Helpful</button>
+                            <button class="btn-success helpful-button" v-on:click="helpful">Helpful</button>
+                            <button class="btn-danger unhelpful-button" v-on:click="unhelpful">Not Helpful</button>
                             <hr />
                         </div>
                     </div>
@@ -41,7 +61,7 @@
          * custom validation and default values.
         *
         * */
-        props: ['info'],
+        props: ['info', 'movieReviews'],
         //This is how we will pull our data in from the new york times
         /*
         * Called after the instance has been mounted,
@@ -58,30 +78,47 @@
             axios
                 .get('https://api.nytimes.com/svc/movies/v2/reviews/all.json?query=&api-key=uS5jeZSKAkkFrYe1qqA5tjGP7S3XzHu6')
                 .then(response => (this.info = response.data.results))
+
+            axios.get('http://localhost:8888/api/feedback').then(response => (this.movieReviews = response.data ))
+
         },
         methods: {
-            createCriticFeedback() {
-                    axios.post(`/api/feedback${this.p_id}/${this.u_id}`, {
-                        user_id: this.u_id,
-                        policy_id: this.p_id,
-                        step_number : this.step_number
-                    }).then(resp =>
-                        {
-                            window.location = resp.data.redirect;
-                        }
-                    ).catch(error => {
-                        module.status = error.response.data.status
-                    });
+            listMovieReviews() {
+                axios.get('http://localhost:8888/api/feedback').then(response => (this.movieReviews = response.data ))
             },
             helpful() {
-                console.log("i was clicked");
                 var parentMovie = event.target.parentElement;
                 var title = $(parentMovie).find('.movie-title').text().trim();
-                var criticName = $(parentMovie).find('.critic-name').text().trim();
-                var name = criticName.replace("Critic Name:", "").trim().toLowerCase();
-                console.log(title.replace("Movie Title:","").trim());
-                console.log(this.titleCase(name));
+                var name = $(parentMovie).find('.critic-name').text().trim();
+                var criticName = name.replace("Critic Name:", "").trim().toLowerCase();
+                var movieName = title.replace("Movie Title:","").trim();
 
+                axios.post(`/api/feedback/helpful`, {
+                    movie_name: movieName,
+                    critic_name: criticName
+                }).then(resp =>
+                {
+                    $(parentMovie).find('.helpful-button').attr('disabled', true);
+                    this.listMovieReviews();
+                    return console.log('helpful')
+                });
+            },
+            unhelpful(){
+                var parentMovie = event.target.parentElement;
+                var title = $(parentMovie).find('.movie-title').text().trim();
+                var name = $(parentMovie).find('.critic-name').text().trim();
+                var criticName = name.replace("Critic Name:", "").trim().toLowerCase();
+                var movieName = title.replace("Movie Title:","").trim();
+
+                axios.post(`/api/feedback/unhelpful`, {
+                    movie_name: movieName,
+                    critic_name: criticName
+                }).then(resp =>
+                {
+                    $(parentMovie).find('.unhelpful-button').attr('disabled', true);
+                    this.listMovieReviews();
+                    return console.log('unhelpful')
+                });
             },
             titleCase(str) {
                 var word = str.split(' ');
