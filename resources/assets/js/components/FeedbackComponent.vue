@@ -2,26 +2,32 @@
     <div class="container">
         <div class="row">
             <div class="col-md-4">
-                <h2 class="panel-heading">Helpful Movie Reviews</h2>
-                <div class="panel-body" v-for="critic in movieReviews">
-                    <ul class="critic-info">
-                        <li>
-                            Critic: {{critic.critic_name}}
-                        </li>
-                        <li>
-                            Helpful: {{critic.helpful}}
-                        </li>
-                        <li>
-                            Unhelpful: {{critic.unhelpful}}
-                        </li>
-                    </ul>
-                    <hr />
+                <div class="panel-primary">
+                    <h2 class="panel-heading">Helpful Movie Reviews</h2>
+                    <alert ref="alert"></alert>
+                    <div class="panel-body" v-for="critic in movieReviews">
+                        <ul class="critic-info">
+                            <li>
+                                Critic: {{titleCase(critic.critic_name)}}
+                            </li>
+                            <li>
+                                Movie: {{critic.movie_name}}
+                            </li>
+                            <li>
+                                Helpful: {{critic.helpful}}
+                            </li>
+                            <li>
+                                Unhelpful: {{critic.unhelpful}}
+                            </li>
+                        </ul>
+                        <hr />
+                    </div>
                 </div>
             </div>
             <div class="col-md-8">
-                <div v-for="i in info">
                 <div class="panel panel-default">
                     <div class="panel-heading">New York Times Movie Reviews</div>
+                    <div v-for="i in info">
                     <div class="panel-body">
                             <ul class="movie-info">
                                 <li class="movie-title">
@@ -45,6 +51,12 @@
                             <hr />
                         </div>
                     </div>
+                    <button @click="prevPage">
+                        Previous
+                    </button>
+                    <button @click="nextPage">
+                        Next
+                    </button>
                 </div>
             </div>
         </div>
@@ -61,7 +73,15 @@
          * custom validation and default values.
         *
         * */
-        props: ['info', 'movieReviews'],
+        props: ['info', 'movieReviews', 'size', 'storedInfo'],
+        data() {
+
+            storedInfo = this.getNewYorkTimesData();
+            return {
+                pageNumber: 0,  // default to page 0,
+                storedInfo
+            }
+        },
         //This is how we will pull our data in from the new york times
         /*
         * Called after the instance has been mounted,
@@ -77,10 +97,8 @@
             // making our get call
             axios
                 .get('https://api.nytimes.com/svc/movies/v2/reviews/all.json?query=&api-key=uS5jeZSKAkkFrYe1qqA5tjGP7S3XzHu6')
-                .then(response => (this.info = response.data.results))
-
+                .then(response => (this.info = response.data.results));
             axios.get('http://localhost:8888/api/feedback').then(response => (this.movieReviews = response.data ))
-
         },
         methods: {
             listMovieReviews() {
@@ -88,37 +106,48 @@
             },
             helpful() {
                 var parentMovie = event.target.parentElement;
-                var title = $(parentMovie).find('.movie-title').text().trim();
-                var name = $(parentMovie).find('.critic-name').text().trim();
-                var criticName = name.replace("Critic Name:", "").trim().toLowerCase();
-                var movieName = title.replace("Movie Title:","").trim();
+                let critic = this.dataToSend(parentMovie);
 
                 axios.post(`/api/feedback/helpful`, {
-                    movie_name: movieName,
-                    critic_name: criticName
+                    movie_name: critic.movieName,
+                    critic_name: critic.criticName
                 }).then(resp =>
                 {
-                    $(parentMovie).find('.helpful-button').attr('disabled', true);
-                    this.listMovieReviews();
-                    return console.log('helpful')
+                    if(resp.status === 204){
+                        this.successfulResponse(parentMovie, 'helpful');
+                    }
                 });
             },
             unhelpful(){
                 var parentMovie = event.target.parentElement;
-                var title = $(parentMovie).find('.movie-title').text().trim();
-                var name = $(parentMovie).find('.critic-name').text().trim();
-                var criticName = name.replace("Critic Name:", "").trim().toLowerCase();
-                var movieName = title.replace("Movie Title:","").trim();
-
+                let critic = this.dataToSend(parentMovie);
                 axios.post(`/api/feedback/unhelpful`, {
-                    movie_name: movieName,
-                    critic_name: criticName
+                    movie_name: critic.movieName,
+                    critic_name: critic.criticName
                 }).then(resp =>
                 {
-                    $(parentMovie).find('.unhelpful-button').attr('disabled', true);
-                    this.listMovieReviews();
-                    return console.log('unhelpful')
+                    if(resp.status === 204)
+                    this.successfulResponse(parentMovie, 'unhelpful');
                 });
+            },
+            dataToSend(parentMovie)
+            {
+                var title = $(parentMovie).find('.movie-title').text().trim();
+                var name = $(parentMovie).find('.critic-name').text().trim();
+                return {
+                    criticName: name.replace("Critic Name:", "").trim().toLowerCase(),
+                    movieName: title.replace("Movie Title:","").trim()
+                };
+            },
+            successfulResponse(parentMovie, helpfulType)
+            {
+                $(parentMovie).find('.'+helpfulType+'-button').attr('disabled', true);
+                this.listMovieReviews();
+                return console.log(helpfulType)
+            },
+            unsuccessfulResponse()
+            {
+                alert('Something went wrong')
             },
             titleCase(str) {
                 var word = str.split(' ');
@@ -127,6 +156,22 @@
                     copyOfWord.push(word[x].charAt(0).toUpperCase()+word[x].slice(1));
                 }
                 return copyOfWord.join(' ');
+            },
+            nextPage() {
+                this.pageNumber++;
+            },
+            prevPage(){
+                this.pageNumber--;
+            },
+            pageCount() {
+                     let l = this.storedInfo.length,
+                         s = this.size;
+                     return Math.ceil(l/s);
+                 },
+            paginatedData(){
+                const start = this.pageNumber * this.size,
+                    end = start + this.size;
+                return this.storedInfo.slice(start, end);
             }
         }
     }
