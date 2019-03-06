@@ -22,46 +22,26 @@ class FeedbackController extends Controller
         return Feedback::orderBy('helpful', 'desc')->get();
     }
 
-    public function store(Request $request)
-    {
-        $feedback = $request->all();
-        $fb = Feedback::create($feedback);
-        $fb->save();
-        return response('', 204);
-    }
 
-    public function helpful(Request $request)
+    public function helpful(Request $request, $helpType)
     {
         $feedback_to_update = $this->feedbackExists($request->critic_name, $request->movie_name);
 
         if(empty($feedback_to_update))
         {
             $feedback = $request->all();
-            $feedback['helpful'] = 1;
-            $feedback['unhelpful'] = 0;
+            if($helpType == 'helpful'){
+                $feedback['helpful'] = 1;
+                $feedback['unhelpful'] = 0;
+            }else {
+                $feedback['helpful'] = 0;
+                $feedback['unhelpful'] = 1;
+            }
             $fb = Feedback::create($feedback);
             $fb->save();
         }else{
-            $feedback_to_update->increment('helpful');
+            $feedback_to_update->increment($helpType);
             $feedback_to_update->save();
-        }
-        return response('', 204);
-    }
-
-    public function unhelpful(Request $request)
-    {
-        $feedback_to_update_or_create = $this->feedbackExists($request->critic_name, $request->movie_name);
-
-        if(empty($feedback_to_update_or_create))
-        {
-            $feedback = $request->all();
-            $feedback['helpful'] = 0;
-            $feedback['unhelpful'] = 1;
-            $fb = Feedback::create($feedback);
-            $fb->save();
-        }else{
-            $feedback_to_update_or_create->increment('unhelpful');
-            $feedback_to_update_or_create->save();
         }
         return response('', 204);
     }

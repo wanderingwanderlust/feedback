@@ -1078,7 +1078,7 @@ module.exports = function normalizeComponent (
 /***/ (function(module, exports, __webpack_require__) {
 
 __webpack_require__(12);
-module.exports = __webpack_require__(47);
+module.exports = __webpack_require__(46);
 
 
 /***/ }),
@@ -1104,6 +1104,7 @@ window.Vue = __webpack_require__(36);
 
 Vue.component('example-component', __webpack_require__(40));
 Vue.component('feedback', __webpack_require__(43));
+// Vue.component('critic-list', require('./components/CriticList.vue'));
 
 var app = new Vue({
   el: '#app'
@@ -44467,7 +44468,7 @@ var normalizeComponent = __webpack_require__(10)
 /* script */
 var __vue_script__ = __webpack_require__(44)
 /* template */
-var __vue_template__ = __webpack_require__(46)
+var __vue_template__ = __webpack_require__(45)
 /* template functional */
 var __vue_template_functional__ = false
 /* styles */
@@ -44565,9 +44566,21 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 //
 //
 //
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
 
 // We installed axios using npm install now we need to import it
 
+var apiKey = 'uS5jeZSKAkkFrYe1qqA5tjGP7S3XzHu6';
 /* harmony default export */ __webpack_exports__["default"] = ({
     /*
     * A list/hash of attributes that are exposed to accept data from the parent component.
@@ -44576,15 +44589,20 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
      * custom validation and default values.
     *
     * */
-    props: ['info', 'movieReviews'],
-    //This is how we will pull our data in from the new york times
-    /*
-    * Called after the instance has been mounted,
-    * where el is replaced by the newly created vm.$el.
-    * If the root instance is mounted to an in-document element,
-     * vm.$el will also be in-document when mounted is called.
-    * */
-    mounted: function mounted() {
+    props: [],
+    /**
+     * Props = data to pass from a parent to child component
+     * Data = private memory of each component
+     */
+    data: function data() {
+        return {
+            info: null,
+            movieReviews: null,
+            show: false,
+            flashMessage: ''
+        };
+    },
+    beforeCreate: function beforeCreate() {
         var _this = this;
 
         var instance = __WEBPACK_IMPORTED_MODULE_0_axios__["create"]();
@@ -44592,58 +44610,57 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
         // making sure our component is registered
         console.log('Component mounted.');
         // making our get call
-        __WEBPACK_IMPORTED_MODULE_0_axios__["get"]('https://api.nytimes.com/svc/movies/v2/reviews/all.json?query=&api-key=uS5jeZSKAkkFrYe1qqA5tjGP7S3XzHu6').then(function (response) {
-            return _this.info = response.data.results;
-        });
-
         __WEBPACK_IMPORTED_MODULE_0_axios__["get"]('http://localhost:8888/api/feedback').then(function (response) {
             return _this.movieReviews = response.data;
         });
     },
+    created: function created() {
+        var _this2 = this;
+
+        __WEBPACK_IMPORTED_MODULE_0_axios__["get"]('https://api.nytimes.com/svc/movies/v2/reviews/all.json?query=&api-key=' + apiKey).then(function (response) {
+            return _this2.info = response.data.results;
+        });
+    },
 
     methods: {
-        listMovieReviews: function listMovieReviews() {
-            var _this2 = this;
-
-            __WEBPACK_IMPORTED_MODULE_0_axios__["get"]('http://localhost:8888/api/feedback').then(function (response) {
-                return _this2.movieReviews = response.data;
-            });
-        },
-        helpful: function helpful() {
+        listMovieCriticFeedback: function listMovieCriticFeedback() {
             var _this3 = this;
 
-            var parentMovie = event.target.parentElement;
-            var title = $(parentMovie).find('.movie-title').text().trim();
-            var name = $(parentMovie).find('.critic-name').text().trim();
-            var criticName = name.replace("Critic Name:", "").trim().toLowerCase();
-            var movieName = title.replace("Movie Title:", "").trim();
-
-            __WEBPACK_IMPORTED_MODULE_0_axios__["post"]('/api/feedback/helpful', {
-                movie_name: movieName,
-                critic_name: criticName
-            }).then(function (resp) {
-                $(parentMovie).find('.helpful-button').attr('disabled', true);
-                _this3.listMovieReviews();
-                return console.log('helpful');
+            __WEBPACK_IMPORTED_MODULE_0_axios__["get"]('http://localhost:8888/api/feedback').then(function (response) {
+                return _this3.movieReviews = response.data;
             });
         },
-        unhelpful: function unhelpful() {
+        isHelpful: function isHelpful(helpfulType) {
             var _this4 = this;
 
             var parentMovie = event.target.parentElement;
+            var critic = this.dataToSend(parentMovie);
+            var apiTarget = "/api/feedback/helpful/" + helpfulType;
+
+            __WEBPACK_IMPORTED_MODULE_0_axios__["post"](apiTarget, {
+                movie_name: critic.movieName,
+                critic_name: critic.criticName
+            }).then(function (resp) {
+                if (resp.status === 204) {
+                    _this4.successfulResponse(parentMovie, helpfulType);
+                }
+            });
+        },
+        dataToSend: function dataToSend(parentMovie) {
             var title = $(parentMovie).find('.movie-title').text().trim();
             var name = $(parentMovie).find('.critic-name').text().trim();
-            var criticName = name.replace("Critic Name:", "").trim().toLowerCase();
-            var movieName = title.replace("Movie Title:", "").trim();
-
-            __WEBPACK_IMPORTED_MODULE_0_axios__["post"]('/api/feedback/unhelpful', {
-                movie_name: movieName,
-                critic_name: criticName
-            }).then(function (resp) {
-                $(parentMovie).find('.unhelpful-button').attr('disabled', true);
-                _this4.listMovieReviews();
-                return console.log('unhelpful');
-            });
+            return {
+                criticName: name.replace("Critic Name:", "").trim().toLowerCase(),
+                movieName: title.replace("Movie Title:", "").trim()
+            };
+        },
+        successfulResponse: function successfulResponse(parentMovie, helpfulType) {
+            $(parentMovie).find('.' + helpfulType + '-button').attr('disabled', true);
+            this.flash("Thanks for letting us know this was " + helpfulType);
+            this.listMovieCriticFeedback();
+        },
+        unsuccessfulResponse: function unsuccessfulResponse() {
+            this.flash("Something went wrong with our servers, please try again.");
         },
         titleCase: function titleCase(str) {
             var word = str.split(' ');
@@ -44652,13 +44669,27 @@ Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
                 copyOfWord.push(word[x].charAt(0).toUpperCase() + word[x].slice(1));
             }
             return copyOfWord.join(' ');
+        },
+        flash: function flash(message) {
+            var _this5 = this;
+
+            this.show = true;
+            this.flashMessage = message;
+            setTimeout(function () {
+                $('.flash-alert').hide();
+                _this5.show = false;
+            }, 3000);
+        }
+    },
+    computed: {
+        isEmpty: function isEmpty() {
+            return $.isEmptyObject(this.movieReviews);
         }
     }
 });
 
 /***/ }),
-/* 45 */,
-/* 46 */
+/* 45 */
 /***/ (function(module, exports, __webpack_require__) {
 
 var render = function() {
@@ -44667,129 +44698,180 @@ var render = function() {
   var _c = _vm._self._c || _h
   return _c("div", { staticClass: "container" }, [
     _c("div", { staticClass: "row" }, [
-      _c(
-        "div",
-        { staticClass: "col-md-4" },
-        [
-          _c("h2", { staticClass: "panel-heading" }, [
-            _vm._v("Helpful Movie Reviews")
-          ]),
-          _vm._v(" "),
-          _vm._l(_vm.movieReviews, function(critic) {
-            return _c("div", { staticClass: "panel-body" }, [
-              _c("ul", { staticClass: "critic-info" }, [
-                _c("li", [
-                  _vm._v(
-                    "\n                        Critic: " +
-                      _vm._s(critic.critic_name) +
-                      "\n                    "
-                  )
-                ]),
-                _vm._v(" "),
-                _c("li", [
-                  _vm._v(
-                    "\n                        Helpful: " +
-                      _vm._s(critic.helpful) +
-                      "\n                    "
-                  )
-                ]),
-                _vm._v(" "),
-                _c("li", [
-                  _vm._v(
-                    "\n                        Unhelpful: " +
-                      _vm._s(critic.unhelpful) +
-                      "\n                    "
-                  )
+      _c("div", { staticClass: "col-md-4" }, [
+        _c(
+          "div",
+          { staticClass: "panel-primary" },
+          [
+            _c("h2", { staticClass: "panel-heading" }, [
+              _vm._v("Helpful Movie Reviews")
+            ]),
+            _vm._v(" "),
+            _vm.isEmpty
+              ? _c("div", [
+                  _c("h2", [_vm._v("There Are currently No Reviews")])
                 ])
-              ]),
-              _vm._v(" "),
-              _c("hr")
-            ])
-          })
-        ],
-        2
-      ),
-      _vm._v(" "),
-      _c(
-        "div",
-        { staticClass: "col-md-8" },
-        _vm._l(_vm.info, function(i) {
-          return _c("div", [
-            _c("div", { staticClass: "panel panel-default" }, [
-              _c("div", { staticClass: "panel-heading" }, [
-                _vm._v("New York Times Movie Reviews")
-              ]),
-              _vm._v(" "),
-              _c("div", { staticClass: "panel-body" }, [
-                _c("ul", { staticClass: "movie-info" }, [
-                  _c("li", { staticClass: "movie-title" }, [
-                    _c("strong", [_vm._v("Movie Title:")]),
+              : _vm._e(),
+            _vm._v(" "),
+            _vm._l(_vm.movieReviews, function(critic) {
+              return _c("div", { staticClass: "panel-body" }, [
+                _c("ul", { staticClass: "critic-info" }, [
+                  _c("li", [
                     _vm._v(
-                      " " +
-                        _vm._s(i.display_title) +
-                        "\n                            "
-                    )
-                  ]),
-                  _vm._v(" "),
-                  _c("li", { staticClass: "critic-name" }, [
-                    _c("strong", [_vm._v("Critic Name:")]),
-                    _vm._v(
-                      " " +
-                        _vm._s(_vm.titleCase(i.byline)) +
-                        "\n                            "
-                    )
-                  ]),
-                  _vm._v(" "),
-                  _c("li", { staticClass: "movie-headline" }, [
-                    _c("strong", [_vm._v(" Movie Headline:")]),
-                    _vm._v(
-                      " " +
-                        _vm._s(i.headline) +
-                        "\n                            "
-                    )
-                  ]),
-                  _vm._v(" "),
-                  _c("li", { staticClass: "critic-summary" }, [
-                    _c("strong", [_vm._v("Critic Summary:")]),
-                    _vm._v(
-                      " " +
-                        _vm._s(i.summary_short) +
-                        "\n                            "
+                      "\n                            Critic: " +
+                        _vm._s(_vm.titleCase(critic.critic_name)) +
+                        "\n                        "
                     )
                   ]),
                   _vm._v(" "),
                   _c("li", [
-                    _c("a", { attrs: { href: i.link.url, target: "_blank" } }, [
-                      _vm._v("Read More")
-                    ])
+                    _vm._v(
+                      "\n                            Movie: " +
+                        _vm._s(critic.movie_name) +
+                        "\n                        "
+                    )
+                  ]),
+                  _vm._v(" "),
+                  _c("li", [
+                    _vm._v(
+                      "\n                            Helpful: " +
+                        _vm._s(critic.helpful) +
+                        "\n                        "
+                    )
+                  ]),
+                  _vm._v(" "),
+                  _c("li", [
+                    _vm._v(
+                      "\n                            Unhelpful: " +
+                        _vm._s(critic.unhelpful) +
+                        "\n                        "
+                    )
                   ])
                 ]),
                 _vm._v(" "),
-                _c(
-                  "button",
-                  {
-                    staticClass: "btn-success helpful-button",
-                    on: { click: _vm.helpful }
-                  },
-                  [_vm._v("Helpful")]
-                ),
-                _vm._v(" "),
-                _c(
-                  "button",
-                  {
-                    staticClass: "btn-danger unhelpful-button",
-                    on: { click: _vm.unhelpful }
-                  },
-                  [_vm._v("Not Helpful")]
-                ),
-                _vm._v(" "),
                 _c("hr")
               ])
-            ])
-          ])
-        }),
-        0
-      )
+            })
+          ],
+          2
+        )
+      ]),
+      _vm._v(" "),
+      _c("div", { staticClass: "col-md-8" }, [
+        _c(
+          "div",
+          { staticClass: "panel panel-default" },
+          [
+            _c("div", { staticClass: "panel-heading" }, [
+              _vm._v("New York Times Movie Reviews")
+            ]),
+            _vm._v(" "),
+            _c(
+              "div",
+              {
+                directives: [
+                  {
+                    name: "show",
+                    rawName: "v-show",
+                    value: _vm.show,
+                    expression: "show"
+                  }
+                ],
+                staticClass: "flash-alert alert-success alert spacing",
+                attrs: { role: "alert" }
+              },
+              [
+                _vm._v(
+                  "\n                    " +
+                    _vm._s(_vm.flashMessage) +
+                    "\n                "
+                )
+              ]
+            ),
+            _vm._v(" "),
+            _vm._l(_vm.info, function(i) {
+              return _c("div", [
+                _c("div", { staticClass: "panel-body" }, [
+                  _c("ul", { staticClass: "movie-info" }, [
+                    _c("li", { staticClass: "movie-title" }, [
+                      _c("strong", [_vm._v("Movie Title:")]),
+                      _vm._v(
+                        " " +
+                          _vm._s(i.display_title) +
+                          "\n                            "
+                      )
+                    ]),
+                    _vm._v(" "),
+                    _c("li", { staticClass: "critic-name" }, [
+                      _c("strong", [_vm._v("Critic Name:")]),
+                      _vm._v(
+                        " " +
+                          _vm._s(_vm.titleCase(i.byline)) +
+                          "\n                            "
+                      )
+                    ]),
+                    _vm._v(" "),
+                    _c("li", { staticClass: "movie-headline" }, [
+                      _c("strong", [_vm._v(" Movie Headline:")]),
+                      _vm._v(
+                        " " +
+                          _vm._s(i.headline) +
+                          "\n                            "
+                      )
+                    ]),
+                    _vm._v(" "),
+                    _c("li", { staticClass: "critic-summary" }, [
+                      _c("strong", [_vm._v("Critic Summary:")]),
+                      _vm._v(
+                        " " +
+                          _vm._s(i.summary_short) +
+                          "\n                            "
+                      )
+                    ]),
+                    _vm._v(" "),
+                    _c("li", [
+                      _c(
+                        "a",
+                        { attrs: { href: i.link.url, target: "_blank" } },
+                        [_vm._v("Read More")]
+                      )
+                    ])
+                  ]),
+                  _vm._v(" "),
+                  _c(
+                    "button",
+                    {
+                      staticClass: "btn-success helpful-button",
+                      on: {
+                        click: function($event) {
+                          return _vm.isHelpful("helpful")
+                        }
+                      }
+                    },
+                    [_vm._v("Helpful")]
+                  ),
+                  _vm._v(" "),
+                  _c(
+                    "button",
+                    {
+                      staticClass: "btn-danger unhelpful-button",
+                      on: {
+                        click: function($event) {
+                          return _vm.isHelpful("unhelpful")
+                        }
+                      }
+                    },
+                    [_vm._v("Not Helpful")]
+                  ),
+                  _vm._v(" "),
+                  _c("hr")
+                ])
+              ])
+            })
+          ],
+          2
+        )
+      ])
     ])
   ])
 }
@@ -44804,7 +44886,7 @@ if (false) {
 }
 
 /***/ }),
-/* 47 */
+/* 46 */
 /***/ (function(module, exports) {
 
 // removed by extract-text-webpack-plugin

@@ -4,7 +4,9 @@
             <div class="col-md-4">
                 <div class="panel-primary">
                     <h2 class="panel-heading">Helpful Movie Reviews</h2>
-                    <alert ref="alert"></alert>
+                    <div v-if="isEmpty">
+                        <h2>There Are currently No Reviews</h2>
+                    </div>
                     <div class="panel-body" v-for="critic in movieReviews">
                         <ul class="critic-info">
                             <li>
@@ -27,6 +29,9 @@
             <div class="col-md-8">
                 <div class="panel panel-default">
                     <div class="panel-heading">New York Times Movie Reviews</div>
+                    <div class="flash-alert alert-success alert spacing" role="alert" v-show="show">
+                        {{ flashMessage }}
+                    </div>
                     <div v-for="i in info">
                     <div class="panel-body">
                             <ul class="movie-info">
@@ -46,17 +51,11 @@
                                     <a :href="i.link.url" target="_blank">Read More</a>
                                 </li>
                             </ul>
-                            <button class="btn-success helpful-button" v-on:click="helpful">Helpful</button>
-                            <button class="btn-danger unhelpful-button" v-on:click="unhelpful">Not Helpful</button>
+                            <button class="btn-success helpful-button" v-on:click="isHelpful('helpful')">Helpful</button>
+                            <button class="btn-danger unhelpful-button" v-on:click="isHelpful('unhelpful')">Not Helpful</button>
                             <hr />
                         </div>
                     </div>
-                    <button @click="prevPage">
-                        Previous
-                    </button>
-                    <button @click="nextPage">
-                        Next
-                    </button>
                 </div>
             </div>
         </div>
@@ -65,6 +64,7 @@
 <script>
     // We installed axios using npm install now we need to import it
     import * as axios from "axios";
+    const apiKey = 'uS5jeZSKAkkFrYe1qqA5tjGP7S3XzHu6';
     export default {
         /*
         * A list/hash of attributes that are exposed to accept data from the parent component.
@@ -73,62 +73,50 @@
          * custom validation and default values.
         *
         * */
-        props: ['info', 'movieReviews', 'size', 'storedInfo'],
+        props: [],
+        /**
+         * Props = data to pass from a parent to child component
+         * Data = private memory of each component
+         */
         data() {
-
-            storedInfo = this.getNewYorkTimesData();
             return {
-                pageNumber: 0,  // default to page 0,
-                storedInfo
+                info: null,
+                movieReviews: null,
+                show: false,
+                flashMessage: ''
             }
         },
-        //This is how we will pull our data in from the new york times
-        /*
-        * Called after the instance has been mounted,
-        * where el is replaced by the newly created vm.$el.
-        * If the root instance is mounted to an in-document element,
-         * vm.$el will also be in-document when mounted is called.
-        * */
-        mounted() {
+        beforeCreate() {
             var instance = axios.create();
             delete instance.defaults.headers.common['X-CSRF-TOKEN'];
             // making sure our component is registered
             console.log('Component mounted.');
             // making our get call
-            const apiKey = 'uS5jeZSKAkkFrYe1qqA5tjGP7S3XzHu6';
+            axios.
+                get('http://localhost:8888/api/feedback')
+                .then(response => (this.movieReviews = response.data));
+        },
+        created() {
             axios
                 .get('https://api.nytimes.com/svc/movies/v2/reviews/all.json?query=&api-key='+apiKey)
                 .then(response => (this.info = response.data.results));
-            axios.get('http://localhost:8888/api/feedback').then(response => (this.movieReviews = response.data ))
         },
         methods: {
-            listMovieReviews() {
+            listMovieCriticFeedback() {
                 axios.get('http://localhost:8888/api/feedback').then(response => (this.movieReviews = response.data ))
             },
-            helpful() {
+            isHelpful(helpfulType) {
                 var parentMovie = event.target.parentElement;
                 let critic = this.dataToSend(parentMovie);
+                let apiTarget = "/api/feedback/helpful/" + helpfulType;
 
-                axios.post(`/api/feedback/helpful`, {
+                axios.post(apiTarget, {
                     movie_name: critic.movieName,
                     critic_name: critic.criticName
-                }).then(resp =>
-                {
-                    if(resp.status === 204){
-                        this.successfulResponse(parentMovie, 'helpful');
+                }).then(resp => {
+                    if (resp.status === 204) {
+                        this.successfulResponse(parentMovie, helpfulType);
                     }
-                });
-            },
-            unhelpful(){
-                var parentMovie = event.target.parentElement;
-                let critic = this.dataToSend(parentMovie);
-                axios.post(`/api/feedback/unhelpful`, {
-                    movie_name: critic.movieName,
-                    critic_name: critic.criticName
-                }).then(resp =>
-                {
-                    if(resp.status === 204)
-                    this.successfulResponse(parentMovie, 'unhelpful');
                 });
             },
             dataToSend(parentMovie)
@@ -143,12 +131,12 @@
             successfulResponse(parentMovie, helpfulType)
             {
                 $(parentMovie).find('.'+helpfulType+'-button').attr('disabled', true);
-                this.listMovieReviews();
-                return console.log(helpfulType)
+                this.flash("Thanks for letting us know this was "+ helpfulType);
+                this.listMovieCriticFeedback();
             },
             unsuccessfulResponse()
             {
-                alert('Something went wrong')
+                this.flash("Something went wrong with our servers, please try again.")
             },
             titleCase(str) {
                 var word = str.split(' ');
@@ -158,21 +146,18 @@
                 }
                 return copyOfWord.join(' ');
             },
-            nextPage() {
-                this.pageNumber++;
-            },
-            prevPage(){
-                this.pageNumber--;
-            },
-            pageCount() {
-                     let l = this.storedInfo.length,
-                         s = this.size;
-                     return Math.ceil(l/s);
-                 },
-            paginatedData(){
-                const start = this.pageNumber * this.size,
-                    end = start + this.size;
-                return this.storedInfo.slice(start, end);
+            flash(message) {
+                this.show = true;
+                this.flashMessage = message;
+                setTimeout(() => {
+                    $('.flash-alert').hide();
+                    this.show = false;
+                },3000);
+            }
+        },
+        computed: {
+            isEmpty() {
+                return $.isEmptyObject(this.movieReviews);
             }
         }
     }
