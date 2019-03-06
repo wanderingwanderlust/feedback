@@ -95,8 +95,9 @@
             // making sure our component is registered
             console.log('Component mounted.');
             // making our get call
+            const apiKey = 'uS5jeZSKAkkFrYe1qqA5tjGP7S3XzHu6';
             axios
-                .get('https://api.nytimes.com/svc/movies/v2/reviews/all.json?query=&api-key=uS5jeZSKAkkFrYe1qqA5tjGP7S3XzHu6')
+                .get('https://api.nytimes.com/svc/movies/v2/reviews/all.json?query=&api-key='+apiKey)
                 .then(response => (this.info = response.data.results));
             axios.get('http://localhost:8888/api/feedback').then(response => (this.movieReviews = response.data ))
         },
